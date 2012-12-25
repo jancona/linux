@@ -19,7 +19,7 @@ create_package() {
 	cp debian/changelog "$pdir/usr/share/doc/$pname/changelog.Debian"
 	gzip -9 "$pdir/usr/share/doc/$pname/changelog.Debian"
 	sh -c "cd '$pdir'; find . -type f ! -path './DEBIAN/*' -printf '%P\0' \
-		| xargs -r0 md5sum > DEBIAN/md5sums"
+		| xargs -s 122880 -r0 md5sum > DEBIAN/md5sums"
 
 	# Fix ownership and permissions
 	chown -R root:root "$pdir"
@@ -240,12 +240,19 @@ fi
 # Build header package
 (cd $srctree; find . -name Makefile -o -name Kconfig\* -o -name \*.pl > "$objtree/debian/hdrsrcfiles")
 (cd $srctree; find arch/$SRCARCH/include include scripts -type f >> "$objtree/debian/hdrsrcfiles")
+(cd $srctree; find drivers -name \*.h -type f >> "$objtree/debian/hdrsrcfiles")
+if echo arch/$SRCARCH/mach-*/include | grep -v '*' >/dev/null; then
+	(cd $srctree; find arch/$SRCARCH/mach-*/include -type f >> "$objtree/debian/hdrsrcfiles")
+fi
 (cd $objtree; find .config Module.symvers include scripts -type f >> "$objtree/debian/hdrobjfiles")
 destdir=$kernel_headers_dir/usr/src/linux-headers-$version
 mkdir -p "$destdir"
 (cd $srctree; tar -c -f - -T "$objtree/debian/hdrsrcfiles") | (cd $destdir; tar -xf -)
 (cd $objtree; tar -c -f - -T "$objtree/debian/hdrobjfiles") | (cd $destdir; tar -xf -)
 rm -f "$objtree/debian/hdrsrcfiles" "$objtree/debian/hdrobjfiles"
+modsdir=$kernel_headers_dir/lib/modules/$version
+mkdir -p "$modsdir"
+(cd $modsdir; ln -s /usr/src/linux-headers-$version build)
 arch=$(dpkg --print-architecture)
 
 cat <<EOF >> debian/control
